@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Users, 
@@ -17,16 +18,16 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
-  const [activeItem, setActiveItem] = useState("dashboard");
+  const location = useLocation();
 
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "contacts", label: "Contacts", icon: Users },
-    { id: "deals", label: "Deals", icon: Target },
-    { id: "tasks", label: "Tasks", icon: CheckSquare },
-    { id: "calendar", label: "Calendar", icon: Calendar },
-    { id: "reports", label: "Reports", icon: BarChart3 },
-    { id: "settings", label: "Settings", icon: Settings },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/" },
+    { id: "contacts", label: "Contacts", icon: Users, path: "/contacts" },
+    { id: "deals", label: "Deals", icon: Target, path: "/deals" },
+    { id: "tasks", label: "Tasks", icon: CheckSquare, path: "/tasks" },
+    { id: "calendar", label: "Calendar", icon: Calendar, path: "/calendar" },
+    { id: "reports", label: "Reports", icon: BarChart3, path: "/reports" },
+    { id: "settings", label: "Settings", icon: Settings, path: "/settings" },
   ];
 
   return (
@@ -53,12 +54,12 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
       <nav className="p-4 space-y-2">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = activeItem === item.id;
+          const isActive = location.pathname === item.path;
           
           return (
-            <button
+            <Link
               key={item.id}
-              onClick={() => setActiveItem(item.id)}
+              to={item.path}
               className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-all group ${
                 isActive 
                   ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' 
@@ -74,7 +75,7 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
               {isActive && !collapsed && (
                 <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
               )}
-            </button>
+            </Link>
           );
         })}
       </nav>
