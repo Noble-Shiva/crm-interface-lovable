@@ -2,54 +2,57 @@
 import { useState } from "react";
 import Header from "@/components/crm/Header";
 import Sidebar from "@/components/crm/Sidebar";
-import { Search, Plus, Filter, Grid, List, Phone, Mail, MapPin } from "lucide-react";
+import ContactForm from "@/components/crm/ContactForm";
+import { useCRMStore } from "@/store/crmStore";
+import { Search, Plus, Filter, Grid, List, Phone, Mail, MapPin, Edit, Trash2 } from "lucide-react";
 
 const ContactsPage = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [editingContact, setEditingContact] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
 
-  const contacts = [
-    {
-      id: 1,
-      name: "Sarah Johnson",
-      email: "sarah.johnson@company.com",
-      phone: "+1 (555) 123-4567",
-      company: "TechCorp Inc.",
-      position: "Marketing Director",
-      location: "New York, NY",
-      avatar: "SJ",
-      status: "Hot Lead"
-    },
-    {
-      id: 2,
-      name: "Michael Chen",
-      email: "m.chen@startup.io",
-      phone: "+1 (555) 987-6543",
-      company: "StartupIO",
-      position: "CEO",
-      location: "San Francisco, CA",
-      avatar: "MC",
-      status: "Customer"
-    },
-    {
-      id: 3,
-      name: "Emily Rodriguez",
-      email: "emily.r@design.studio",
-      phone: "+1 (555) 456-7890",
-      company: "Design Studio",
-      position: "Creative Lead",
-      location: "Los Angeles, CA",
-      avatar: "ER",
-      status: "Prospect"
-    }
-  ];
+  const { contacts, addContact, updateContact, deleteContact } = useCRMStore();
+
+  const statusOptions = ["All", "Hot Lead", "Customer", "Prospect", "Cold Lead"];
+
+  const filteredContacts = contacts.filter(contact => {
+    const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         contact.company.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "All" || contact.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Hot Lead': return 'bg-red-100 text-red-800';
       case 'Customer': return 'bg-green-100 text-green-800';
       case 'Prospect': return 'bg-blue-100 text-blue-800';
+      case 'Cold Lead': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handleSaveContact = (contactData: any) => {
+    if (editingContact) {
+      updateContact(editingContact.id, contactData);
+    } else {
+      addContact(contactData);
+    }
+    setEditingContact(null);
+  };
+
+  const handleEditContact = (contact: any) => {
+    setEditingContact(contact);
+    setShowContactForm(true);
+  };
+
+  const handleDeleteContact = (id: number) => {
+    if (window.confirm("Are you sure you want to delete this contact?")) {
+      deleteContact(id);
     }
   };
 
@@ -65,9 +68,15 @@ const ContactsPage = () => {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-3xl font-semibold text-gray-800 mb-2">Contacts</h1>
-              <p className="text-gray-600">Manage your contact relationships</p>
+              <p className="text-gray-600">Manage your contact relationships ({filteredContacts.length} contacts)</p>
             </div>
-            <button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all flex items-center space-x-2">
+            <button 
+              onClick={() => {
+                setEditingContact(null);
+                setShowContactForm(true);
+              }}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all flex items-center space-x-2"
+            >
               <Plus className="w-5 h-5" />
               <span>Add Contact</span>
             </button>
@@ -82,13 +91,23 @@ const ContactsPage = () => {
                   <input
                     type="text"
                     placeholder="Search contacts..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                <button className="flex items-center space-x-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                  <Filter className="w-4 h-4" />
-                  <span>Filter</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                  <Filter className="w-4 h-4 text-gray-400" />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {statusOptions.map(status => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="flex items-center space-x-2">
                 <button
@@ -107,10 +126,10 @@ const ContactsPage = () => {
             </div>
           </div>
 
-          {/* Contacts Grid */}
+          {/* Contacts Grid/List */}
           <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
-            {contacts.map((contact) => (
-              <div key={contact.id} className="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100">
+            {filteredContacts.map((contact) => (
+              <div key={contact.id} className="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100 group">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -121,15 +140,31 @@ const ContactsPage = () => {
                       <p className="text-sm text-gray-600">{contact.position}</p>
                     </div>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(contact.status)}`}>
-                    {contact.status}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(contact.status)}`}>
+                      {contact.status}
+                    </span>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                      <button
+                        onClick={() => handleEditContact(contact)}
+                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteContact(contact.id)}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <Mail className="w-4 h-4" />
-                    <span>{contact.email}</span>
+                    <span className="truncate">{contact.email}</span>
                   </div>
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <Phone className="w-4 h-4" />
@@ -145,8 +180,30 @@ const ContactsPage = () => {
               </div>
             ))}
           </div>
+
+          {filteredContacts.length === 0 && (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-800 mb-2">No contacts found</h3>
+              <p className="text-gray-600">Try adjusting your search or filter criteria</p>
+            </div>
+          )}
         </main>
       </div>
+
+      {/* Contact Form Modal */}
+      {showContactForm && (
+        <ContactForm
+          contact={editingContact}
+          onClose={() => {
+            setShowContactForm(false);
+            setEditingContact(null);
+          }}
+          onSave={handleSaveContact}
+        />
+      )}
     </div>
   );
 };

@@ -2,38 +2,18 @@
 import { useState } from "react";
 import Header from "@/components/crm/Header";
 import Sidebar from "@/components/crm/Sidebar";
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import EventForm from "@/components/crm/EventForm";
+import { useCRMStore } from "@/store/crmStore";
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, Edit, Trash2 } from "lucide-react";
 
 const CalendarPage = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [selectedDate, setSelectedDate] = useState("");
 
-  const events = [
-    {
-      id: 1,
-      title: "Client Meeting - TechCorp",
-      date: "2024-01-15",
-      time: "10:00 AM",
-      type: "meeting",
-      color: "bg-blue-500"
-    },
-    {
-      id: 2,
-      title: "Demo Call - StartupIO",
-      date: "2024-01-16",
-      time: "2:00 PM",
-      type: "call",
-      color: "bg-green-500"
-    },
-    {
-      id: 3,
-      title: "Contract Review",
-      date: "2024-01-17",
-      time: "11:00 AM",
-      type: "task",
-      color: "bg-yellow-500"
-    }
-  ];
+  const { events, addEvent, updateEvent, deleteEvent } = useCRMStore();
 
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -77,6 +57,43 @@ const CalendarPage = () => {
     });
   };
 
+  const getEventsForDate = (day: number) => {
+    const dateStr = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    return events.filter(event => event.date === dateStr);
+  };
+
+  const upcomingEvents = events
+    .filter(event => new Date(event.date) >= new Date())
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 5);
+
+  const handleSaveEvent = (eventData: any) => {
+    if (editingEvent) {
+      updateEvent(editingEvent.id, eventData);
+    } else {
+      addEvent(eventData);
+    }
+    setEditingEvent(null);
+  };
+
+  const handleEditEvent = (event: any) => {
+    setEditingEvent(event);
+    setShowEventForm(true);
+  };
+
+  const handleDeleteEvent = (id: number) => {
+    if (window.confirm("Are you sure you want to delete this event?")) {
+      deleteEvent(id);
+    }
+  };
+
+  const handleDayClick = (day: number) => {
+    const dateStr = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    setSelectedDate(dateStr);
+    setEditingEvent(null);
+    setShowEventForm(true);
+  };
+
   const days = getDaysInMonth(currentDate);
 
   return (
@@ -93,7 +110,14 @@ const CalendarPage = () => {
               <h1 className="text-3xl font-semibold text-gray-800 mb-2">Calendar</h1>
               <p className="text-gray-600">Schedule and manage your appointments</p>
             </div>
-            <button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all flex items-center space-x-2">
+            <button 
+              onClick={() => {
+                setEditingEvent(null);
+                setSelectedDate("");
+                setShowEventForm(true);
+              }}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all flex items-center space-x-2"
+            >
               <Plus className="w-5 h-5" />
               <span>Add Event</span>
             </button>
@@ -141,24 +165,47 @@ const CalendarPage = () => {
 
                 {/* Calendar Grid */}
                 <div className="grid grid-cols-7 gap-1">
-                  {days.map((day, index) => (
-                    <div
-                      key={index}
-                      className={`p-2 h-24 border border-gray-100 ${
-                        day ? 'bg-white hover:bg-gray-50 cursor-pointer' : 'bg-gray-50'
-                      } transition-colors`}
-                    >
-                      {day && (
-                        <>
-                          <div className="text-sm font-medium text-gray-800">{day}</div>
-                          {/* Example event dots */}
-                          {day === 15 && <div className="w-2 h-2 bg-blue-500 rounded-full mt-1"></div>}
-                          {day === 16 && <div className="w-2 h-2 bg-green-500 rounded-full mt-1"></div>}
-                          {day === 17 && <div className="w-2 h-2 bg-yellow-500 rounded-full mt-1"></div>}
-                        </>
-                      )}
-                    </div>
-                  ))}
+                  {days.map((day, index) => {
+                    const dayEvents = day ? getEventsForDate(day) : [];
+                    const isToday = day && 
+                      currentDate.getFullYear() === new Date().getFullYear() &&
+                      currentDate.getMonth() === new Date().getMonth() &&
+                      day === new Date().getDate();
+
+                    return (
+                      <div
+                        key={index}
+                        onClick={() => day && handleDayClick(day)}
+                        className={`p-2 h-32 border border-gray-100 ${
+                          day ? 'bg-white hover:bg-gray-50 cursor-pointer' : 'bg-gray-50'
+                        } ${isToday ? 'bg-blue-50 border-blue-200' : ''} transition-colors`}
+                      >
+                        {day && (
+                          <>
+                            <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-gray-800'}`}>
+                              {day}
+                            </div>
+                            <div className="space-y-1 overflow-hidden">
+                              {dayEvents.slice(0, 3).map(event => (
+                                <div
+                                  key={event.id}
+                                  className={`text-xs px-1 py-0.5 rounded text-white truncate ${event.color}`}
+                                  title={event.title}
+                                >
+                                  {event.title}
+                                </div>
+                              ))}
+                              {dayEvents.length > 3 && (
+                                <div className="text-xs text-gray-500">
+                                  +{dayEvents.length - 3} more
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -168,15 +215,43 @@ const CalendarPage = () => {
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Upcoming Events</h3>
                 <div className="space-y-3">
-                  {events.map(event => (
-                    <div key={event.id} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                      <div className={`w-3 h-3 rounded-full ${event.color} mt-1`}></div>
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-800 text-sm">{event.title}</h4>
-                        <p className="text-xs text-gray-600">{event.date} at {event.time}</p>
+                  {upcomingEvents.map(event => (
+                    <div key={event.id} className="group flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                      <div className={`w-3 h-3 rounded-full ${event.color} mt-1 flex-shrink-0`}></div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-gray-800 text-sm truncate">{event.title}</h4>
+                        <div className="flex items-center space-x-2 text-xs text-gray-600 mt-1">
+                          <CalendarIcon className="w-3 h-3" />
+                          <span>{event.date}</span>
+                          <Clock className="w-3 h-3 ml-2" />
+                          <span>{event.time}</span>
+                        </div>
+                        {event.location && (
+                          <div className="flex items-center space-x-2 text-xs text-gray-600 mt-1">
+                            <MapPin className="w-3 h-3" />
+                            <span className="truncate">{event.location}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                        <button
+                          onClick={() => handleEditEvent(event)}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        >
+                          <Edit className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEvent(event.id)}
+                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                       </div>
                     </div>
                   ))}
+                  {upcomingEvents.length === 0 && (
+                    <p className="text-gray-500 text-sm">No upcoming events</p>
+                  )}
                 </div>
               </div>
 
@@ -191,12 +266,35 @@ const CalendarPage = () => {
                   <div className="text-sm text-gray-600">
                     {monthNames[new Date().getMonth()]} {new Date().getFullYear()}
                   </div>
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="text-sm text-gray-600">Events today</div>
+                    <div className="text-xl font-semibold text-blue-600">
+                      {events.filter(event => {
+                        const today = new Date();
+                        const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+                        return event.date === todayStr;
+                      }).length}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </main>
       </div>
+
+      {/* Event Form Modal */}
+      {showEventForm && (
+        <EventForm
+          event={editingEvent ? editingEvent : { date: selectedDate }}
+          onClose={() => {
+            setShowEventForm(false);
+            setEditingEvent(null);
+            setSelectedDate("");
+          }}
+          onSave={handleSaveEvent}
+        />
+      )}
     </div>
   );
 };
